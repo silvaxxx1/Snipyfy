@@ -1,10 +1,13 @@
-"""Clip moment identification via the Anthropic Python SDK (claude-sonnet-4-6)."""
+"""Clip moment identification via the Claude Code CLI.
+
+Requires `claude` on PATH and an active Claude Code login (OAuth).
+No ANTHROPIC_API_KEY needed — the CLI uses its own session auth.
+"""
 
 import json
 import os
 import re
-
-import anthropic
+import subprocess
 
 
 def fmt_time(seconds: float) -> str:
@@ -130,19 +133,24 @@ def parse_llm_json(raw: str) -> dict:
 
 
 def _call_claude(prompt: str) -> dict:
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key or api_key.startswith("your_"):
-        raise RuntimeError(
-            "ANTHROPIC_API_KEY not set. Add it to your .env file.\n"
-            "Get a key at https://console.anthropic.com/"
+    try:
+        result = subprocess.run(
+            ["claude", "--print"],
+            input=prompt,
+            capture_output=True,
+            text=True,
+            timeout=900,
+            env=os.environ,
         )
-    client = anthropic.Anthropic(api_key=api_key)
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=4096,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return parse_llm_json(message.content[0].text)
+    except FileNotFoundError:
+        raise RuntimeError(
+            "Claude Code CLI not found. Install it from https://claude.ai/code "
+            "and run `claude` once to log in."
+        )
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or "no output"
+        raise RuntimeError(f"claude CLI exited with code {result.returncode}: {detail}")
+    return parse_llm_json(result.stdout)
 
 
 def identify_moments(
@@ -181,7 +189,7 @@ def identify_moments(
         next_pos = pos + len(chunk)
         pct = int(100 * next_pos / total_chars)
         label = "full transcript" if total_chars <= CHUNK_SIZE else f"chunk {chunk_num}, {pct}%"
-        print(f"  Claude API → {label}...")
+        print(f"  Claude CLI → {label}...")
 
         prompt = _build_prompt(chunk, int(min_duration), int(max_duration), language)
 

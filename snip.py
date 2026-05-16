@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-SNIP — Automated Arabic video clip pipeline.
+SNIP — Automated video clip pipeline for Arabic and English content.
 
 Outputs per run:
   youtube_timestamps.txt   — chapter markers to paste in video description
   clip_N_original.mp4      — clip at original ratio (LinkedIn / archive)
-  clip_N_shorts.mp4        — 9:16 vertical with Arabic subtitles (TikTok / Shorts)
+  clip_N_shorts.mp4        — 9:16 vertical with burned subtitles (TikTok / Shorts)
   transcript.json          — full Whisper transcript (reuse with --skip-transcribe)
 """
 
@@ -54,6 +54,7 @@ def run(
     groq_transcribe: bool = False,
     speechmatics: bool = False,
     audio_path: str | None = None,
+    language: str = "ar",
 ) -> None:
     pipeline_start = time.time()
 
@@ -81,7 +82,7 @@ def run(
             print(f"\n[1/3] Extracting audio then transcribing with Speechmatics...")
             from transcribe import extract_audio
             extract_audio(str(video), src_audio)
-        result = transcribe_speechmatics(src_audio, language="ar")
+        result = transcribe_speechmatics(src_audio, language=language)
         with open(transcript_cache, "w", encoding="utf-8") as f:
             json.dump(result["segments"], f, ensure_ascii=False, indent=2)
         print(f"  Transcript saved → {transcript_cache}")
@@ -93,13 +94,13 @@ def run(
             print(f"\n[1/3] Extracting audio then transcribing with Groq Whisper...")
             from transcribe import extract_audio
             extract_audio(str(video), src_audio)
-        result = transcribe_groq(src_audio, language="ar")
+        result = transcribe_groq(src_audio, language=language)
         with open(transcript_cache, "w", encoding="utf-8") as f:
             json.dump(result["segments"], f, ensure_ascii=False, indent=2)
         print(f"  Transcript saved → {transcript_cache}")
     else:
         print(f"\n[1/3] Transcribing with Whisper {model_name}...")
-        result = transcribe(str(video), tmp_dir=str(tmp), model_name=model_name, language="ar")
+        result = transcribe(str(video), tmp_dir=str(tmp), model_name=model_name, language=language)
         with open(transcript_cache, "w", encoding="utf-8") as f:
             json.dump(result["segments"], f, ensure_ascii=False, indent=2)
         print(f"  Transcript saved → {transcript_cache}")
@@ -114,7 +115,7 @@ def run(
     # ── Step 2: Identify moments + timestamps ───────────────────────────────
     t0 = time.time()
     print(f"\n[2/3] Identifying clip moments ({min_dur:.0f}–{max_dur:.0f}s) with Claude...")
-    data = identify_moments(segments, min_duration=min_dur, max_duration=max_dur)
+    data = identify_moments(segments, min_duration=min_dur, max_duration=max_dur, language=language)
     print(f"  ⏱  Step 2 done in {_hms(time.time() - t0)}")
 
     print(f"\n  YouTube timestamps:")
@@ -178,7 +179,7 @@ def run(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="SNIP — Arabic video clip automation",
+        description="SNIP — Automated video clip pipeline for Arabic and English content",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
@@ -224,6 +225,11 @@ def main() -> None:
         "--transcribe-only", action="store_true",
         help="Only run Whisper and save transcript.json, then stop",
     )
+    parser.add_argument(
+        "--language", default="ar",
+        help="Whisper language code and Claude prompt language (default: ar). "
+             "Use 'en' for English, or any Whisper-supported language code.",
+    )
 
     args = parser.parse_args()
 
@@ -255,6 +261,7 @@ def main() -> None:
         groq_transcribe=args.groq_transcribe,
         speechmatics=args.speechmatics,
         audio_path=args.audio,
+        language=args.language,
     )
 
 

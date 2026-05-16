@@ -64,8 +64,11 @@ claude --version
 ## Usage
 
 ```bash
-# Basic — runs local Whisper large-v3, picks clips, renders everything
+# Arabic video (default)
 uv run python snip.py /path/to/video.mp4
+
+# English video
+uv run python snip.py /path/to/video.mp4 --language en
 
 # Custom output dir and clip length
 uv run python snip.py /path/to/video.mp4 -o ./clips --min-duration 45 --max-duration 90
@@ -76,7 +79,7 @@ uv run python snip.py /path/to/video.mp4 --skip-transcribe
 # Use a lighter Whisper model for quick tests
 uv run python snip.py /path/to/video.mp4 --model medium
 
-# Cloud transcription (faster, no GPU needed)
+# Cloud transcription (faster, no local GPU needed)
 uv run python snip.py /path/to/video.mp4 --groq-transcribe
 uv run python snip.py /path/to/video.mp4 --speechmatics
 
@@ -96,6 +99,7 @@ uv run python snip.py /path/to/video.mp4 --transcript ./transcript.json
 | `--min-duration` | `60` | Minimum clip length in seconds |
 | `--max-duration` | `120` | Maximum clip length in seconds |
 | `--skip-transcribe` | off | Reuse existing `transcript.json` in output dir |
+| `--language` | `ar` | Language code for transcription and clip selection (`ar`, `en`, or any Whisper code) |
 | `--transcribe-only` | off | Run Whisper only, skip clip selection and rendering |
 | `--transcript` | — | Path to an existing `transcript.json` — skips Whisper entirely |
 | `--groq-transcribe` | off | Transcribe via Groq Whisper API (requires `GROQ_API_KEY`) |

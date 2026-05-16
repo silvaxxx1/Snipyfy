@@ -19,33 +19,81 @@ def fmt_time(seconds: float) -> str:
     return f"{m}:{s:02d}"
 
 
-_PROMPT = """\
-You are a viral Arabic content editor. Your job is to find the moments in this transcript \
-that would make someone stop scrolling and watch to the end — then share it.
+def _build_prompt(transcript: str, min_dur: int, max_dur: int, language: str) -> str:
+    ar = language == "ar"
 
-The video is Arabic educational/technical content (may contain English technical terms). \
-Speaker labels like [S1], [S2] indicate different speakers — use this to spot Q&A moments \
-or audience interactions.
+    if ar:
+        header = (
+            "You are a viral Arabic content editor. Your job is to find the moments in this "
+            "transcript that would make someone stop scrolling and watch to the end — then share it.\n\n"
+            "The video is Arabic educational/technical content (may contain English technical terms). "
+            "Speaker labels like [S1], [S2] indicate different speakers — use this to spot Q&A moments "
+            "or audience interactions."
+        )
+        ts_instruction = "List every major topic shift. Titles in Arabic. English tech terms stay in English."
+        cold_open = (
+            "1. COLD OPEN: The clip's first sentence must grab without any setup.\n"
+            '   Bad start: "كما قلنا في البداية..." / "يعني..." / "المهم..."\n'
+            "   Good start: A bold claim, a surprising fact, a question, a relatable analogy."
+        )
+        viral = (
+            "3. VIRAL SIGNAL — pick clips with at least one of:\n"
+            '   - A moment that makes you say "ما كنت أعرف هذا" (didn\'t know that)\n'
+            "   - A relatable analogy using everyday Arabic life/culture\n"
+            "   - A demonstration where something visibly works or fails\n"
+            "   - A counterintuitive or controversial claim\n"
+            "   - A speaker genuinely laughing or the audience reacting"
+        )
+        title_format = (
+            "TITLE FORMAT (Arabic):\n"
+            "- Max 7 words\n"
+            '- Curiosity gap: make the viewer need to watch ("لماذا...", "ما لا تعرفه عن...", "الخطأ الذي...")\n'
+            "- English tech terms stay in English"
+        )
+        title_example = '"عنوان فضولي بالعربي"'
+    else:
+        header = (
+            "You are a viral content editor. Your job is to find the moments in this "
+            "transcript that would make someone stop scrolling and watch to the end — then share it.\n\n"
+            "Speaker labels like [S1], [S2] indicate different speakers — use this to spot Q&A moments "
+            "or audience interactions."
+        )
+        ts_instruction = "List every major topic shift. Titles in English."
+        cold_open = (
+            "1. COLD OPEN: The clip's first sentence must grab without any setup.\n"
+            '   Bad start: "As I was saying..." / "So basically..." / "The thing is..."\n'
+            "   Good start: A bold claim, a surprising fact, a question, a relatable analogy."
+        )
+        viral = (
+            "3. VIRAL SIGNAL — pick clips with at least one of:\n"
+            "   - A counterintuitive or surprising fact\n"
+            "   - A relatable analogy from everyday life\n"
+            "   - A demonstration where something visibly works or fails\n"
+            "   - A bold or controversial claim\n"
+            "   - A speaker genuinely laughing or the audience reacting"
+        )
+        title_format = (
+            "TITLE FORMAT (English):\n"
+            "- Max 7 words\n"
+            '- Curiosity gap: make the viewer need to watch ("Why...", "What nobody tells you about...", "The mistake...")'
+        )
+        title_example = '"A Curiosity-Gap Title"'
+
+    return f"""\
+{header}
 
 TRANSCRIPT:
 {transcript}
 
 ━━━ TASK 1: YouTube chapter timestamps ━━━
-List every major topic shift. Titles in Arabic. English tech terms stay in English.
+{ts_instruction}
 
 ━━━ TASK 2: Select {min_dur}–{max_dur}s clips for YouTube / TikTok ━━━
 
 WHAT MAKES A GREAT CLIP — ranked by importance:
-1. COLD OPEN: The clip's first sentence must grab without any setup.
-   Bad start: "كما قلنا في البداية..." / "يعني..." / "المهم..."
-   Good start: A bold claim, a surprising fact, a question, a relatable analogy.
+{cold_open}
 2. SELF-CONTAINED: A viewer who never saw the full video understands and feels satisfied.
-3. VIRAL SIGNAL — pick clips with at least one of:
-   - A moment that makes you say "ما كنت أعرف هذا" (didn't know that)
-   - A relatable analogy using everyday Arabic life/culture
-   - A demonstration where something visibly works or fails
-   - A counterintuitive or controversial claim
-   - A speaker genuinely laughing or the audience reacting
+{viral}
 4. CLEAN END: Ends on a complete thought, a punchline, or a resolved point — not mid-sentence.
 
 HARD RULES:
@@ -56,22 +104,19 @@ HARD RULES:
 - Do NOT invent or round timestamps
 - Skip clips that are pure Q&A unless the answer is genuinely standalone and punchy
 
-TITLE FORMAT (Arabic):
-- Max 7 words
-- Curiosity gap: make the viewer need to watch ("لماذا...", "ما لا تعرفه عن...", "الخطأ الذي...")
-- English tech terms stay in English
+{title_format}
 
 Return ONLY this JSON, nothing else:
 {{
   "timestamps": [
-    {{"time": "0:00", "title": "عنوان الفصل"}},
+    {{"time": "0:00", "title": "Chapter title"}},
     {{"time": "3:45", "title": "..."}}
   ],
   "clips": [
     {{
       "start": 42.0,
       "end": 108.5,
-      "title": "عنوان فضولي بالعربي",
+      "title": {title_example},
       "opening_line": "first sentence of the clip verbatim",
       "hook": "why a stranger would stop scrolling at this exact moment (English)"
     }}
@@ -88,16 +133,20 @@ def parse_llm_json(raw: str) -> dict:
 
 
 def _call_claude(prompt: str) -> dict:
-    env = os.environ.copy()
-    env.pop("ANTHROPIC_API_KEY", None)  # let claude use its OAuth session, not the .env placeholder
-    result = subprocess.run(
-        ["claude", "--print"],
-        input=prompt,
-        capture_output=True,
-        text=True,
-        timeout=900,
-        env=env,
-    )
+    try:
+        result = subprocess.run(
+            ["claude", "--print"],
+            input=prompt,
+            capture_output=True,
+            text=True,
+            timeout=900,
+            env=os.environ,
+        )
+    except FileNotFoundError:
+        raise RuntimeError(
+            "Claude Code CLI not found. Install it from https://claude.ai/code "
+            "and run `claude` once to log in."
+        )
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "claude CLI returned non-zero exit code")
     return parse_llm_json(result.stdout)
@@ -107,6 +156,7 @@ def identify_moments(
     segments: list,
     min_duration: float = 60.0,
     max_duration: float = 120.0,
+    language: str = "ar",
 ) -> dict:
     """
     Shell out to the Claude Code CLI to identify clip moments and timestamps.
@@ -146,11 +196,7 @@ def identify_moments(
         label = "full transcript" if total_chars <= CHUNK_SIZE else f"chunk {chunk_num}, {pct}%"
         print(f"  Claude CLI → {label}...")
 
-        prompt = _PROMPT.format(
-            transcript=chunk,
-            min_dur=int(min_duration),
-            max_dur=int(max_duration),
-        )
+        prompt = _build_prompt(chunk, int(min_duration), int(max_duration), language)
 
         try:
             data = _call_claude(prompt)

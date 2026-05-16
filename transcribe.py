@@ -8,11 +8,13 @@ from pathlib import Path
 
 
 def extract_audio(video_path: str, audio_path: str) -> None:
-    # FLAC: lossless, ~4x smaller than PCM WAV → much faster Speechmatics upload
+    ext = Path(audio_path).suffix.lower()
+    # FLAC: lossless, ~4x smaller than PCM WAV → faster uploads; WAV for Whisper/Groq compatibility
+    codec = "flac" if ext == ".flac" else "pcm_s16le"
     subprocess.run(
         [
             "ffmpeg", "-y", "-i", video_path,
-            "-vn", "-acodec", "flac",
+            "-vn", "-acodec", codec,
             "-ar", "16000", "-ac", "1",
             audio_path,
         ],

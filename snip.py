@@ -3,10 +3,11 @@
 SNIP — Automated video clip pipeline for Arabic and English content.
 
 Outputs per run:
-  youtube_timestamps.txt   — chapter markers to paste in video description
-  clip_N_original.mp4      — clip at original ratio (LinkedIn / archive)
-  clip_N_shorts.mp4        — 9:16 vertical with burned subtitles (TikTok / Shorts)
-  transcript.json          — full Whisper transcript (reuse with --skip-transcribe)
+  youtube_timestamps.txt     — chapter markers to paste in video description
+  clip_N_original.mp4        — clip at original ratio with burned subtitles (LinkedIn / archive)
+  clip_N_shorts.mp4          — 9:16 vertical with burned subtitles (TikTok / Shorts)
+  transcript.json            — full transcript cached for fast re-runs
+  media_team_analysis.txt    — AI analysis per clip; edit and pass back via --feedback
 """
 
 import argparse

@@ -1,6 +1,6 @@
 # SNIP
 
-Automated video clip pipeline for Arabic and English content. Feed it a long video, get YouTube chapter timestamps and ready-to-post vertical clips with burned-in subtitles.
+Automated video clip pipeline for Arabic and English content. Feed it a long video, get YouTube chapter timestamps, ready-to-post vertical clips with burned-in subtitles, and an AI analysis report for your media team.
 
 ## What it produces
 
@@ -10,6 +10,7 @@ Each video gets its own folder under `snip_out/`:
 snip_out/
 └── my_lecture/
     ├── youtube_timestamps.txt
+    ├── media_team_analysis.txt
     ├── transcript.json
     ├── 01_clip_title_original.mp4
     ├── 01_clip_title_shorts.mp4
@@ -20,7 +21,8 @@ snip_out/
 | Output | Description |
 |---|---|
 | `youtube_timestamps.txt` | Chapter markers to paste into the video description |
-| `clip_N_original.mp4` | Clip at original aspect ratio (LinkedIn / archive) |
+| `media_team_analysis.txt` | AI analysis per clip — hook type, opening, shareable line, team annotation sections |
+| `clip_N_original.mp4` | Clip at original aspect ratio with burned-in subtitles (LinkedIn / archive) |
 | `clip_N_shorts.mp4` | 9:16 vertical with burned-in subtitles (YouTube Shorts / TikTok) |
 | `transcript.json` | Full transcript cached for fast re-runs |
 
@@ -32,7 +34,7 @@ Video → Whisper → Claude → ffmpeg
                     select
 ```
 
-Claude reads the transcript and picks the 3–6 moments most likely to make someone stop scrolling — prioritizing cold opens, self-contained insights, and punchy endings. The output is a JSON with exact timestamps that ffmpeg uses to cut and render.
+Claude reads the full transcript and picks the 3–6 moments most likely to make someone stop scrolling — prioritizing cold opens, self-contained insights, and punchy endings. It also produces a per-clip analysis covering hook type, opening line, most shareable sentence, and why a viewer would stop scrolling.
 
 ## Requirements
 
@@ -52,7 +54,7 @@ Claude reads the transcript and picks the 3–6 moments most likely to make some
 | [Groq](https://console.groq.com/) | `--groq-transcribe` | `GROQ_API_KEY` |
 | [Speechmatics](https://www.speechmatics.com/) | `--speechmatics` | `SPEECHMATICS_API_KEY` |
 
-> **Note:** The default transcription runs Whisper locally — no API key required. Claude Code CLI uses your existing Claude login — no `ANTHROPIC_API_KEY` needed.
+> **Note:** The default transcription runs Whisper locally — no API key required. Claude Code CLI uses your existing Claude login — no `ANTHROPIC_API_KEY` needed. Run SNIP from a regular terminal, not from inside a Claude Code session.
 
 ## Installation
 
@@ -83,8 +85,9 @@ uv run python snip.py /path/to/video.mp4
 # English video
 uv run python snip.py /path/to/video.mp4 --language en
 
-# Custom output dir and clip length
-uv run python snip.py /path/to/video.mp4 -o ./clips --min-duration 45 --max-duration 90
+# Cloud transcription with speaker diarization
+uv run python snip.py /path/to/video.mp4 --speechmatics
+uv run python snip.py /path/to/video.mp4 --groq-transcribe
 
 # Skip re-transcription on follow-up runs (transcript.json already exists)
 uv run python snip.py /path/to/video.mp4 --skip-transcribe
@@ -92,15 +95,17 @@ uv run python snip.py /path/to/video.mp4 --skip-transcribe
 # Use a lighter Whisper model for quick tests
 uv run python snip.py /path/to/video.mp4 --model medium
 
-# Cloud transcription (faster, no local GPU needed)
-uv run python snip.py /path/to/video.mp4 --groq-transcribe
-uv run python snip.py /path/to/video.mp4 --speechmatics
+# Custom output dir and clip length
+uv run python snip.py /path/to/video.mp4 -o ./clips --min-duration 45 --max-duration 90
 
 # Just transcribe, skip clip selection and rendering
 uv run python snip.py /path/to/video.mp4 --transcribe-only
 
 # Start from an existing transcript
 uv run python snip.py /path/to/video.mp4 --transcript ./transcript.json
+
+# Feed team feedback back into the next run
+uv run python snip.py /path/to/video.mp4 --feedback ./snip_out/my_lecture/media_team_analysis.txt
 ```
 
 ## CLI flags
@@ -111,14 +116,43 @@ uv run python snip.py /path/to/video.mp4 --transcript ./transcript.json
 | `--model` | `large-v3` | Whisper model: `tiny`, `base`, `medium`, `large`, `large-v2`, `large-v3` |
 | `--min-duration` | `60` | Minimum clip length in seconds |
 | `--max-duration` | `120` | Maximum clip length in seconds |
-| `--skip-transcribe` | off | Reuse existing `transcript.json` in output dir |
 | `--language` | `ar` | Language code for transcription and clip selection (`ar`, `en`, or any Whisper code) |
-| `--chunk-size` | `180000` | Max transcript chars per Claude call. Lower if Claude times out; raise to give more context per call |
+| `--skip-transcribe` | off | Reuse existing `transcript.json` in output dir |
 | `--transcribe-only` | off | Run Whisper only, skip clip selection and rendering |
 | `--transcript` | — | Path to an existing `transcript.json` — skips Whisper entirely |
 | `--groq-transcribe` | off | Transcribe via Groq Whisper API (requires `GROQ_API_KEY`) |
 | `--speechmatics` | off | Transcribe via Speechmatics Batch API (requires `SPEECHMATICS_API_KEY`) |
 | `--audio` | — | Path to pre-extracted audio file (use with `--groq-transcribe`) |
+| `--feedback` | — | Path to an edited `media_team_analysis.txt` — injected into Claude's prompt to improve clip selection |
+| `--chunk-size` | `180000` | Max transcript chars per Claude call. Lower if Claude times out; raise to give more context per call |
+
+## Media team feedback loop
+
+Every run generates `media_team_analysis.txt` with a breakdown of each clip:
+
+```
+1. عنوان المقطع
+   الوقت: 1:26:28 ← 1:28:15  (107s)
+   النوع: Relatable pain / Developer trap
+   الافتتاحية: "..."
+   لماذا يتوقف المشاهد: ...
+   الجملة الأقوى: "..."
+
+   [ ملاحظات الفريق ]
+   _______________________________________________
+```
+
+The team edits the file — adds notes, marks what worked, flags what didn't. On the next run, pass it back with `--feedback` and Claude applies the guidance to clip selection and titles.
+
+## Utilities
+
+**`fuse_subs.py`** — burn subtitles into already-rendered original clips without re-running the pipeline:
+
+```bash
+uv run python fuse_subs.py /path/to/snip_out/my_lecture
+```
+
+Produces `_original_sub.mp4` alongside the clean `_original.mp4`.
 
 ## Notes
 
@@ -127,7 +161,7 @@ uv run python snip.py /path/to/video.mp4 --transcript ./transcript.json
 - **Arabic dialects** — `large-v3` gives best accuracy for Sudanese and Gulf dialects; `medium` works for Modern Standard Arabic.
 - **9:16 crop** — center crop for now. Face-following pan is a planned improvement.
 - **Fast iteration** — use `--skip-transcribe` to re-run clip selection without re-running Whisper (saves several minutes).
-- **Long videos** — the transcript is chunked automatically if it exceeds Claude's single-call limit.
+- **Terminal requirement** — run SNIP from a regular terminal. The Claude CLI conflicts with an already-running Claude Code session.
 
 ## License
 

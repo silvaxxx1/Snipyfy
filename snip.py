@@ -175,16 +175,20 @@ def run(
 
         print(f"\n  [{i}/{len(clips)}] {clip['title']}")
 
-        # Original (stream copy)
+        # Original — cut then burn horizontal subtitles
+        orig_raw = tmp / f"{name}_orig_raw.mp4"
+        cut_original(str(video), start, end, str(orig_raw))
+        orig_ass = tmp / f"{name}_orig.ass"
+        build_ass(segments, start, end, str(orig_ass), is_vertical=False)
         orig_path = out / f"{name}_original.mp4"
-        cut_original(str(video), start, end, str(orig_path))
+        burn_subtitles(str(orig_raw), str(orig_ass), str(orig_path))
         print(f"    original  → {orig_path.name}")
 
         # Vertical raw (no subtitles yet)
         vert_raw = tmp / f"{name}_vert.mp4"
         cut_vertical(str(video), start, end, str(vert_raw), src_w, src_h)
 
-        # ASS subtitles
+        # ASS subtitles (vertical)
         ass_path = tmp / f"{name}.ass"
         build_ass(segments, start, end, str(ass_path), is_vertical=True)
 

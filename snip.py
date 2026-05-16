@@ -242,7 +242,7 @@ def main() -> None:
             print(f"Error: file not found: {video}", file=sys.stderr)
             sys.exit(1)
         video_path = str(video)
-        default_out = str(video.parent / "snip_out")
+        default_out = str(video.parent / "snip_out" / video.stem)
     else:
         video_path = None
         default_out = str(Path(args.transcript).parent)

@@ -4,6 +4,19 @@ Automated video clip pipeline for Arabic and English content. Feed it a long vid
 
 ## What it produces
 
+Each video gets its own folder under `snip_out/`:
+
+```
+snip_out/
+└── my_lecture/
+    ├── youtube_timestamps.txt
+    ├── transcript.json
+    ├── 01_clip_title_original.mp4
+    ├── 01_clip_title_shorts.mp4
+    ├── 02_clip_title_original.mp4
+    └── 02_clip_title_shorts.mp4
+```
+
 | Output | Description |
 |---|---|
 | `youtube_timestamps.txt` | Chapter markers to paste into the video description |
@@ -94,7 +107,7 @@ uv run python snip.py /path/to/video.mp4 --transcript ./transcript.json
 
 | Flag | Default | Description |
 |---|---|---|
-| `-o / --output` | `<video_dir>/snip_out` | Output directory |
+| `-o / --output` | `<video_dir>/snip_out/<video_name>/` | Output directory |
 | `--model` | `large-v3` | Whisper model: `tiny`, `base`, `medium`, `large`, `large-v2`, `large-v3` |
 | `--min-duration` | `60` | Minimum clip length in seconds |
 | `--max-duration` | `120` | Maximum clip length in seconds |

@@ -1,7 +1,7 @@
 [project]
 name = "snip"
 version = "0.1.0"
-description = "Automated Arabic video clip pipeline — Whisper transcription, Claude clip selection, ffmpeg render"
+description = "Automated video clip pipeline for Arabic and English content — Whisper transcription, Claude clip selection, ffmpeg render"
 requires-python = ">=3.11"
 dependencies = [
     # Core

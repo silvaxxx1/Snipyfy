@@ -1,6 +1,6 @@
 # SNIP
 
-Automated Arabic video clip pipeline. Feed it a long video, get YouTube chapter timestamps and ready-to-post vertical clips with Arabic subtitles.
+Automated video clip pipeline for Arabic and English content. Feed it a long video, get YouTube chapter timestamps and ready-to-post vertical clips with burned-in subtitles.
 
 ## What it produces
 

@@ -19,7 +19,7 @@ def fmt_time(seconds: float) -> str:
     return f"{m}:{s:02d}"
 
 
-def _build_prompt(transcript: str, min_dur: int, max_dur: int, language: str) -> str:
+def _build_prompt(transcript: str, min_dur: int, max_dur: int, language: str, feedback: str = "") -> str:
     ar = language == "ar"
 
     if ar:
@@ -79,9 +79,21 @@ def _build_prompt(transcript: str, min_dur: int, max_dur: int, language: str) ->
         )
         title_example = '"A Curiosity-Gap Title"'
 
+    feedback_section = ""
+    if feedback:
+        feedback_section = f"""
+━━━ MEDIA TEAM FEEDBACK (apply to this run) ━━━
+The team reviewed previous clips and provided this guidance.
+Use it to sharpen your selection, titles, and analysis:
+
+{feedback}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+
     return f"""\
 {header}
-
+{feedback_section}
 TRANSCRIPT:
 {transcript}
 
@@ -118,7 +130,9 @@ Return ONLY this JSON, nothing else:
       "end": 108.5,
       "title": {title_example},
       "opening_line": "first sentence of the clip verbatim",
-      "hook": "why a stranger would stop scrolling at this exact moment (English)"
+      "hook": "why a stranger would stop scrolling at this exact moment (English)",
+      "hook_type": "e.g. Bold claim / Counterintuitive / Story-driven / Myth-breaking / Relatable pain / Surprising fact",
+      "shareable_line": "the single most quotable sentence in this clip"
     }}
   ]
 }}
@@ -159,6 +173,7 @@ def identify_moments(
     max_duration: float = 120.0,
     language: str = "ar",
     chunk_size: int = 180_000,
+    feedback: str = "",
 ) -> dict:
     lines = []
     for seg in segments:
@@ -192,7 +207,7 @@ def identify_moments(
         label = "full transcript" if total_chars <= CHUNK_SIZE else f"chunk {chunk_num}, {pct}%"
         print(f"  Claude CLI → {label}...")
 
-        prompt = _build_prompt(chunk, int(min_duration), int(max_duration), language)
+        prompt = _build_prompt(chunk, int(min_duration), int(max_duration), language, feedback)
 
         try:
             data = _call_claude(prompt)

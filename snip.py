@@ -41,6 +41,42 @@ from render import build_ass, burn_subtitles, cut_original, cut_vertical, get_vi
 from transcribe import load_cached, transcribe, transcribe_groq, transcribe_speechmatics
 
 
+def generate_analysis_txt(clips: list, output_path: Path) -> None:
+    lines = [
+        "تحليل المقاطع — مخرجات الـ AI",
+        "=" * 50,
+        "",
+        "هذا الملف يشرح سبب اختيار كل مقطع وطبيعة الـ Hook.",
+        "يمكن للفريق تعديله وإضافة ملاحظاته ثم تمريره للنظام",
+        "كـ feedback في الجلسة القادمة عبر: --feedback <path>",
+        "",
+        "=" * 50,
+        "",
+    ]
+    for i, clip in enumerate(clips, 1):
+        dur = clip["end"] - clip["start"]
+        lines += [
+            f"{i}. {clip['title']}",
+            f"   الوقت: {fmt_time(clip['start'])} ← {fmt_time(clip['end'])}  ({dur:.0f}s)",
+            f"   النوع: {clip.get('hook_type', '—')}",
+            f"   الافتتاحية: \"{clip.get('opening_line', '—')}\"",
+            f"   لماذا يتوقف المشاهد: {clip.get('hook', '—')}",
+            f"   الجملة الأقوى: \"{clip.get('shareable_line', '—')}\"",
+            "",
+            "   [ ملاحظات الفريق ]",
+            "   _______________________________________________",
+            "",
+        ]
+    lines += [
+        "=" * 50,
+        "ملاحظات عامة للفريق:",
+        "_______________________________________________",
+        "",
+    ]
+    output_path.write_text("\n".join(lines), encoding="utf-8")
+    print(f"  Saved → {output_path}")
+
+
 def save_timestamps(timestamps: list, output_path: Path) -> None:
     with open(output_path, "w", encoding="utf-8") as f:
         for ts in timestamps:
@@ -77,6 +113,7 @@ def run(
     audio_path: str | None = None,
     language: str = "ar",
     chunk_size: int = 180_000,
+    feedback_path: str | None = None,
 ) -> None:
     pipeline_start = time.time()
 
@@ -136,8 +173,13 @@ def run(
 
     # ── Step 2: Identify moments + timestamps ───────────────────────────────
     t0 = time.time()
+    feedback = ""
+    if feedback_path:
+        feedback = Path(feedback_path).read_text(encoding="utf-8")
+        print(f"  Loaded feedback from {feedback_path}")
+
     print(f"\n[2/3] Identifying clip moments ({min_dur:.0f}–{max_dur:.0f}s) with Claude...")
-    data = identify_moments(segments, min_duration=min_dur, max_duration=max_dur, language=language, chunk_size=chunk_size)
+    data = identify_moments(segments, min_duration=min_dur, max_duration=max_dur, language=language, chunk_size=chunk_size, feedback=feedback)
     print(f"  ⏱  Step 2 done in {_hms(time.time() - t0)}")
 
     print(f"\n  YouTube timestamps:")
@@ -146,6 +188,7 @@ def run(
     save_timestamps(data["timestamps"], out / "youtube_timestamps.txt")
 
     clips = data["clips"]
+    generate_analysis_txt(clips, out / "media_team_analysis.txt")
     print(f"\n  Found {len(clips)} clip(s):")
     for i, c in enumerate(clips, 1):
         dur = c["end"] - c["start"]
@@ -257,6 +300,11 @@ def main() -> None:
              "Use 'en' for English, or any Whisper-supported language code.",
     )
     parser.add_argument(
+        "--feedback", default=None,
+        help="Path to a media_team_analysis.txt edited by the team — "
+             "injected into Claude's prompt to improve clip selection.",
+    )
+    parser.add_argument(
         "--chunk-size", type=int, default=180_000,
         help="Max transcript chars per Claude call (default: 180000 ≈ 45k tokens). "
              "Lower this if Claude times out; raise it to send more context per call.",
@@ -294,6 +342,7 @@ def main() -> None:
         audio_path=args.audio,
         language=args.language,
         chunk_size=args.chunk_size,
+        feedback_path=args.feedback,
     )
 
 

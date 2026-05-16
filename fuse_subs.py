@@ -81,11 +81,10 @@ def main() -> None:
         patched_ass = tmp / f"{name}_horiz.ass"
         subs.save(str(patched_ass), encoding="utf-8")
 
-        tmp_out = tmp / f"{name}_fused.mp4"
+        subbed = out / f"{name}_original_sub.mp4"
         try:
-            burn(original, patched_ass, tmp_out)
-            tmp_out.rename(original)
-            print(f"  ✓ {name}_original.mp4  ({w}x{h})")
+            burn(original, patched_ass, subbed)
+            print(f"  ✓ {name}_original_sub.mp4  ({w}x{h})")
         except subprocess.CalledProcessError as e:
             print(f"  ✗ {name}: ffmpeg failed — {e.stderr.decode()[:200]}")
         finally:

@@ -92,6 +92,9 @@ uv run python snip.py /path/to/video.mp4 --groq-transcribe
 # Skip re-transcription on follow-up runs (transcript.json already exists)
 uv run python snip.py /path/to/video.mp4 --skip-transcribe
 
+# Skip Claude entirely — re-render from cached clips.json (e.g. after settings change)
+uv run python snip.py /path/to/video.mp4 --skip-transcribe --skip-identify
+
 # Use a lighter Whisper model for quick tests
 uv run python snip.py /path/to/video.mp4 --model medium
 
@@ -118,6 +121,7 @@ uv run python snip.py /path/to/video.mp4 --feedback ./snip_out/my_lecture/media_
 | `--max-duration` | `120` | Maximum clip length in seconds |
 | `--language` | `ar` | Language code for transcription and clip selection (`ar`, `en`, or any Whisper code) |
 | `--skip-transcribe` | off | Reuse existing `transcript.json` in output dir |
+| `--skip-identify` | off | Reuse existing `clips.json` — jumps straight to render, no Claude call |
 | `--transcribe-only` | off | Run Whisper only, skip clip selection and rendering |
 | `--transcript` | — | Path to an existing `transcript.json` — skips Whisper entirely |
 | `--groq-transcribe` | off | Transcribe via Groq Whisper API (requires `GROQ_API_KEY`) |

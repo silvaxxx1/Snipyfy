@@ -115,6 +115,7 @@ def run(
     language: str = "ar",
     chunk_size: int = 180_000,
     feedback_path: str | None = None,
+    skip_identify: bool = False,
 ) -> None:
     pipeline_start = time.time()
 
@@ -173,14 +174,23 @@ def run(
     segments = result["segments"]
 
     # ── Step 2: Identify moments + timestamps ───────────────────────────────
+    clips_cache = out / "clips.json"
     t0 = time.time()
-    feedback = ""
-    if feedback_path:
-        feedback = Path(feedback_path).read_text(encoding="utf-8")
-        print(f"  Loaded feedback from {feedback_path}")
 
-    print(f"\n[2/3] Identifying clip moments ({min_dur:.0f}–{max_dur:.0f}s) with Claude...")
-    data = identify_moments(segments, min_duration=min_dur, max_duration=max_dur, language=language, chunk_size=chunk_size, feedback=feedback)
+    if skip_identify and clips_cache.exists():
+        print(f"\n[2/3] Loading cached clips from {clips_cache}")
+        data = json.loads(clips_cache.read_text(encoding="utf-8"))
+    else:
+        feedback = ""
+        if feedback_path:
+            feedback = Path(feedback_path).read_text(encoding="utf-8")
+            print(f"  Loaded feedback from {feedback_path}")
+
+        print(f"\n[2/3] Identifying clip moments ({min_dur:.0f}–{max_dur:.0f}s) with Claude...")
+        data = identify_moments(segments, min_duration=min_dur, max_duration=max_dur, language=language, chunk_size=chunk_size, feedback=feedback)
+        clips_cache.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"  Clips cached → {clips_cache}")
+
     print(f"  ⏱  Step 2 done in {_hms(time.time() - t0)}")
 
     print(f"\n  YouTube timestamps:")
@@ -212,6 +222,8 @@ def run(
     info = get_video_info(str(video))
     src_w, src_h = info["width"], info["height"]
 
+    failed: list[str] = []
+
     for i, clip in enumerate(clips, 1):
         start, end = clip["start"], clip["end"]
         slug = slugify(clip["title"]) or f"clip_{i:02d}"
@@ -219,31 +231,39 @@ def run(
 
         print(f"\n  [{i}/{len(clips)}] {clip['title']}")
 
-        # Original — cut then burn horizontal subtitles
-        orig_raw = tmp / f"{name}_orig_raw.mp4"
-        cut_original(str(video), start, end, str(orig_raw))
-        orig_ass = tmp / f"{name}_orig.ass"
-        build_ass(segments, start, end, str(orig_ass), is_vertical=False)
-        orig_path = out / f"{name}_original.mp4"
-        burn_subtitles(str(orig_raw), str(orig_ass), str(orig_path))
-        print(f"    original  → {orig_path.name}")
+        try:
+            # Original — cut then burn horizontal subtitles
+            orig_raw = tmp / f"{name}_orig_raw.mp4"
+            cut_original(str(video), start, end, str(orig_raw))
+            orig_ass = tmp / f"{name}_orig.ass"
+            build_ass(segments, start, end, str(orig_ass), is_vertical=False)
+            orig_path = out / f"{name}_original.mp4"
+            burn_subtitles(str(orig_raw), str(orig_ass), str(orig_path))
+            print(f"    original  → {orig_path.name}")
 
-        # Vertical raw (no subtitles yet)
-        vert_raw = tmp / f"{name}_vert.mp4"
-        cut_vertical(str(video), start, end, str(vert_raw), src_w, src_h)
+            # Vertical raw (no subtitles yet)
+            vert_raw = tmp / f"{name}_vert.mp4"
+            cut_vertical(str(video), start, end, str(vert_raw), src_w, src_h)
 
-        # ASS subtitles (vertical)
-        ass_path = tmp / f"{name}.ass"
-        build_ass(segments, start, end, str(ass_path), is_vertical=True)
+            # ASS subtitles (vertical)
+            ass_path = tmp / f"{name}.ass"
+            build_ass(segments, start, end, str(ass_path), is_vertical=True)
 
-        # Burn subtitles → final shorts file
-        shorts_path = out / f"{name}_shorts.mp4"
-        burn_subtitles(str(vert_raw), str(ass_path), str(shorts_path))
-        print(f"    shorts    → {shorts_path.name}")
+            # Burn subtitles → final shorts file
+            shorts_path = out / f"{name}_shorts.mp4"
+            burn_subtitles(str(vert_raw), str(ass_path), str(shorts_path))
+            print(f"    shorts    → {shorts_path.name}")
+
+        except Exception as e:
+            print(f"    ✗ failed — {e}")
+            failed.append(name)
 
     print(f"  ⏱  Step 3 done in {_hms(time.time() - t0)}")
 
     total = time.time() - pipeline_start
+    if failed:
+        print(f"\n⚠ {len(failed)} clip(s) failed to render: {', '.join(failed)}")
+        print(f"  Re-run with --skip-identify --skip-transcribe to retry only the render step.")
     print(f"\n✓ Done in {_hms(total)} — outputs in: {out}/")
 
 
@@ -290,6 +310,10 @@ def main() -> None:
     parser.add_argument(
         "--skip-transcribe", action="store_true",
         help="Skip transcription if transcript.json already exists in output dir",
+    )
+    parser.add_argument(
+        "--skip-identify", action="store_true",
+        help="Skip Claude clip selection if clips.json already exists — jumps straight to render",
     )
     parser.add_argument(
         "--transcribe-only", action="store_true",
@@ -344,6 +368,7 @@ def main() -> None:
         language=args.language,
         chunk_size=args.chunk_size,
         feedback_path=args.feedback,
+        skip_identify=args.skip_identify,
     )
 
 

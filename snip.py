@@ -49,10 +49,10 @@ def save_timestamps(timestamps: list, output_path: Path) -> None:
 
 
 def slugify(text: str, max_len: int = 35) -> str:
-    """Make a safe filename from Arabic/mixed text."""
-    # Keep only ASCII alphanumeric + spaces, fall back to generic slug
-    ascii_only = "".join(c for c in text if c.isascii() and (c.isalnum() or c == " "))
-    slug = ascii_only.strip().replace(" ", "_")[:max_len]
+    from anyascii import anyascii
+    transliterated = anyascii(text)
+    slug = "".join(c if c.isalnum() or c == " " else " " for c in transliterated)
+    slug = "_".join(slug.split())[:max_len]
     return slug or "clip"
 
 

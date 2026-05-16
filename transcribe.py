@@ -1,4 +1,4 @@
-"""Whisper transcription — local or via Groq API."""
+"""Whisper transcription — local, via Groq API, or via Speechmatics Batch API."""
 
 import json
 import os
@@ -194,9 +194,8 @@ def transcribe_speechmatics(audio_path: str, language: str = "ar") -> dict:
     from speechmatics.batch import AsyncClient, TranscriptionConfig
 
     async def _run() -> list[dict]:
-        # language="ar" + diarization="speaker": Arabic language pack handles English
-        # technical terms natively; language_identification_config requires language="auto"
-        # which hurts Arabic accuracy, so we skip it.
+        # diarization="speaker" enables speaker labels ([S1], [S2]) used by the Claude prompt.
+        # language_identification_config requires language="auto" which hurts accuracy, so we skip it.
         config = TranscriptionConfig(
             language=language,
             operating_point="enhanced",

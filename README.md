@@ -8,15 +8,15 @@ Automated video clip pipeline for Arabic and English content. Feed it a long vid
 |---|---|
 | `youtube_timestamps.txt` | Chapter markers to paste into the video description |
 | `clip_N_original.mp4` | Clip at original aspect ratio (LinkedIn / archive) |
-| `clip_N_shorts.mp4` | 9:16 vertical with burned-in Arabic subtitles (YouTube Shorts / TikTok) |
+| `clip_N_shorts.mp4` | 9:16 vertical with burned-in subtitles (YouTube Shorts / TikTok) |
 | `transcript.json` | Full transcript cached for fast re-runs |
 
 ## How it works
 
 ```
-Video → Whisper (Arabic) → Claude → ffmpeg
-        transcription      clip       render
-                           selection
+Video → Whisper → Claude → ffmpeg
+        transcribe  clip     render
+                    select
 ```
 
 Claude reads the transcript and picks the 3–6 moments most likely to make someone stop scrolling — prioritizing cold opens, self-contained insights, and punchy endings. The output is a JSON with exact timestamps that ffmpeg uses to cut and render.
@@ -44,8 +44,8 @@ Claude reads the transcript and picks the 3–6 moments most likely to make some
 ## Installation
 
 ```bash
-git clone https://github.com/silvaxxx1/snip.git
-cd snip
+git clone https://github.com/silvaxxx1/Snipyfy.git
+cd Snipyfy
 
 # Install Python dependencies
 uv sync
@@ -108,8 +108,9 @@ uv run python snip.py /path/to/video.mp4 --transcript ./transcript.json
 
 ## Notes
 
-- **Arabic RTL subtitles** — handled automatically by libass in ffmpeg.
-- **Dialects** — `large-v3` gives best accuracy for Sudanese and Gulf dialects; `medium` works for Modern Standard Arabic.
+- **RTL subtitles** — Arabic right-to-left text is handled automatically by libass in ffmpeg; no extra config needed.
+- **Language** — pass `--language ar` (default) for Arabic, `--language en` for English, or any [Whisper-supported code](https://github.com/openai/whisper#available-models-and-languages). The Claude prompt adapts accordingly.
+- **Arabic dialects** — `large-v3` gives best accuracy for Sudanese and Gulf dialects; `medium` works for Modern Standard Arabic.
 - **9:16 crop** — center crop for now. Face-following pan is a planned improvement.
 - **Fast iteration** — use `--skip-transcribe` to re-run clip selection without re-running Whisper (saves several minutes).
 - **Long videos** — the transcript is chunked automatically if it exceeds Claude's single-call limit.

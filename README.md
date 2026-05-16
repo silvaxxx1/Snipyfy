@@ -52,7 +52,7 @@ Claude reads the transcript and picks the 3–6 moments most likely to make some
 | [Groq](https://console.groq.com/) | `--groq-transcribe` | `GROQ_API_KEY` |
 | [Speechmatics](https://www.speechmatics.com/) | `--speechmatics` | `SPEECHMATICS_API_KEY` |
 
-> **Note:** The default transcription runs Whisper locally — no API key required. Claude Code CLI uses your existing Claude login — no `ANTHROPIC_API_KEY` needed.
+> **Note:** The default transcription runs Whisper locally — no transcription API key required. Clip selection uses the Anthropic Python SDK and requires `ANTHROPIC_API_KEY`.
 
 ## Installation
 

@@ -1,13 +1,10 @@
-"""Clip moment identification via the Claude Code CLI.
-
-Requires `claude` on PATH and an active Claude Code login.
-No ANTHROPIC_API_KEY needed — the CLI uses its own session auth.
-"""
+"""Clip moment identification via the Anthropic Python SDK (claude-sonnet-4-6)."""
 
 import json
 import os
 import re
-import subprocess
+
+import anthropic
 
 
 def fmt_time(seconds: float) -> str:
@@ -133,23 +130,19 @@ def parse_llm_json(raw: str) -> dict:
 
 
 def _call_claude(prompt: str) -> dict:
-    try:
-        result = subprocess.run(
-            ["claude", "--print"],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=900,
-            env=os.environ,
-        )
-    except FileNotFoundError:
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key or api_key.startswith("your_"):
         raise RuntimeError(
-            "Claude Code CLI not found. Install it from https://claude.ai/code "
-            "and run `claude` once to log in."
+            "ANTHROPIC_API_KEY not set. Add it to your .env file.\n"
+            "Get a key at https://console.anthropic.com/"
         )
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or "claude CLI returned non-zero exit code")
-    return parse_llm_json(result.stdout)
+    client = anthropic.Anthropic(api_key=api_key)
+    message = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=4096,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return parse_llm_json(message.content[0].text)
 
 
 def identify_moments(
@@ -158,12 +151,6 @@ def identify_moments(
     max_duration: float = 120.0,
     language: str = "ar",
 ) -> dict:
-    """
-    Shell out to the Claude Code CLI to identify clip moments and timestamps.
-    Uses Claude Code's own auth — no ANTHROPIC_API_KEY required.
-    Claude's large context fits most transcripts in a single call; chunking
-    only kicks in for very long videos (>600k chars).
-    """
     lines = []
     for seg in segments:
         s = seg.get("start", 0)
@@ -176,7 +163,7 @@ def identify_moments(
     full_text = "\n".join(lines)
     total_chars = len(full_text)
 
-    CHUNK_SIZE = 70_000  # ~17k tokens per chunk — keeps each Claude CLI call under 3 min
+    CHUNK_SIZE = 70_000  # ~17k tokens per chunk
 
     all_clips: list = []
     all_timestamps: list = []
@@ -194,7 +181,7 @@ def identify_moments(
         next_pos = pos + len(chunk)
         pct = int(100 * next_pos / total_chars)
         label = "full transcript" if total_chars <= CHUNK_SIZE else f"chunk {chunk_num}, {pct}%"
-        print(f"  Claude CLI → {label}...")
+        print(f"  Claude API → {label}...")
 
         prompt = _build_prompt(chunk, int(min_duration), int(max_duration), language)
 
@@ -207,7 +194,6 @@ def identify_moments(
 
         pos = next_pos
 
-    # Enforce duration bounds and remove overlapping clips
     all_clips.sort(key=lambda c: c["start"])
     deduped = []
     for clip in all_clips:
@@ -220,7 +206,6 @@ def identify_moments(
             continue
         deduped.append(clip)
 
-    # Sort and deduplicate timestamps
     def ts_to_secs(t: str) -> int:
         parts = t.split(":")
         return sum(int(p) * 60 ** i for i, p in enumerate(reversed(parts)))

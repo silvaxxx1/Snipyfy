@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+*.mp4
+*.mp3
+*.wav
+*.flac
+transcript.json
+snip_out*/
+_tmp/

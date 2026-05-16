@@ -76,6 +76,7 @@ def run(
     speechmatics: bool = False,
     audio_path: str | None = None,
     language: str = "ar",
+    chunk_size: int = 180_000,
 ) -> None:
     pipeline_start = time.time()
 
@@ -136,7 +137,7 @@ def run(
     # ── Step 2: Identify moments + timestamps ───────────────────────────────
     t0 = time.time()
     print(f"\n[2/3] Identifying clip moments ({min_dur:.0f}–{max_dur:.0f}s) with Claude...")
-    data = identify_moments(segments, min_duration=min_dur, max_duration=max_dur, language=language)
+    data = identify_moments(segments, min_duration=min_dur, max_duration=max_dur, language=language, chunk_size=chunk_size)
     print(f"  ⏱  Step 2 done in {_hms(time.time() - t0)}")
 
     print(f"\n  YouTube timestamps:")
@@ -251,6 +252,11 @@ def main() -> None:
         help="Whisper language code and Claude prompt language (default: ar). "
              "Use 'en' for English, or any Whisper-supported language code.",
     )
+    parser.add_argument(
+        "--chunk-size", type=int, default=180_000,
+        help="Max transcript chars per Claude call (default: 180000 ≈ 45k tokens). "
+             "Lower this if Claude times out; raise it to send more context per call.",
+    )
 
     args = parser.parse_args()
 
@@ -283,6 +289,7 @@ def main() -> None:
         speechmatics=args.speechmatics,
         audio_path=args.audio,
         language=args.language,
+        chunk_size=args.chunk_size,
     )
 
 

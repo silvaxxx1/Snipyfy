@@ -113,6 +113,7 @@ uv run python snip.py /path/to/video.mp4 --transcript ./transcript.json
 | `--max-duration` | `120` | Maximum clip length in seconds |
 | `--skip-transcribe` | off | Reuse existing `transcript.json` in output dir |
 | `--language` | `ar` | Language code for transcription and clip selection (`ar`, `en`, or any Whisper code) |
+| `--chunk-size` | `180000` | Max transcript chars per Claude call. Lower if Claude times out; raise to give more context per call |
 | `--transcribe-only` | off | Run Whisper only, skip clip selection and rendering |
 | `--transcript` | — | Path to an existing `transcript.json` — skips Whisper entirely |
 | `--groq-transcribe` | off | Transcribe via Groq Whisper API (requires `GROQ_API_KEY`) |

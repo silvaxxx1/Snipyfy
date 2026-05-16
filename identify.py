@@ -158,6 +158,7 @@ def identify_moments(
     min_duration: float = 60.0,
     max_duration: float = 120.0,
     language: str = "ar",
+    chunk_size: int = 180_000,
 ) -> dict:
     lines = []
     for seg in segments:
@@ -171,7 +172,7 @@ def identify_moments(
     full_text = "\n".join(lines)
     total_chars = len(full_text)
 
-    CHUNK_SIZE = 70_000  # ~17k tokens per chunk
+    CHUNK_SIZE = chunk_size  # default 180k chars (~45k tokens), well within Claude's 200k context
 
     all_clips: list = []
     all_timestamps: list = []

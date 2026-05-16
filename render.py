@@ -66,9 +66,9 @@ def build_ass(
     output_path: str, is_vertical: bool = True,
 ) -> None:
     """
-    Build an ASS subtitle file for a clip from Whisper word-level timestamps.
+    Build an ASS subtitle file for a clip from word-level timestamps.
     Groups words into chunks of ~5 for natural reading rhythm.
-    Arabic text is handled correctly by libass (RTL auto-detected per Unicode bidi).
+    Arabic RTL text is handled automatically by libass (Unicode bidi).
     """
     subs = pysubs2.SSAFile()
     subs.info["PlayResX"] = 1080

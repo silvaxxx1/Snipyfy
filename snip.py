@@ -11,9 +11,30 @@ Outputs per run:
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
+
+# Unbuffered output so progress prints appear immediately in pipes and logs
+sys.stdout.reconfigure(line_buffering=True)
+
+
+def _load_dotenv() -> None:
+    env_file = Path(__file__).parent / ".env"
+    if not env_file.exists():
+        return
+    for line in env_file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, _, value = line.partition("=")
+            key, value = key.strip(), value.strip()
+            # Don't overwrite values already set in the shell environment
+            if key and value and not value.startswith("your_"):
+                os.environ.setdefault(key, value)
+
+
+_load_dotenv()
 
 from identify import fmt_time, identify_moments
 from render import build_ass, burn_subtitles, cut_original, cut_vertical, get_video_info
